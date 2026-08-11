@@ -1,0 +1,45 @@
+# requirements.txt
+# Install with: pip install -r requirements.txt
+
+# --- Core ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+gunicorn>=22.0.0
+
+# --- ASGI / HTTP ---
+starlette>=0.37.0
+python-multipart>=0.0.9   # required for Form() and UploadFile
+
+# --- Rate limiting ---
+slowapi>=0.1.9
+
+# --- Database ---
+sqlalchemy>=2.0.0
+psycopg[binary]>=3.1.0
+
+# --- Auth ---
+python-jose[cryptography]>=3.3.0
+PyJWT>=2.8.0
+bcrypt>=4.0.0
+
+# --- Data processing ---
+pandas>=2.2.0
+openpyxl>=3.1.2
+openpyxl-image-loader>=1.0.5
+num2words>=0.5.13
+
+# --- Image processing ---
+Pillow>=10.3.0
+numpy>=1.26.0
+# [Issue #6 FIX] OpenCV headless (no GUI deps) replaces the pure-NumPy
+# HSV conversion in darken_reds_and_greens(). Uses SIMD-accelerated C
+# code — 5-10x faster and ~75% less RAM than the 22-array NumPy version.
+opencv-python-headless>=4.9.0
+qrcode[pil]>=7.4.2
+python-barcode>=0.15.1
+
+# --- Utilities ---
+python-dotenv>=1.0.1
+
+pydantic[email]
+psycopg2

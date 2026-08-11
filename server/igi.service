@@ -1,0 +1,48 @@
+# igi.service — systemd unit for the IGI FastAPI backend
+# Place at: /etc/systemd/system/igi.service
+# Enable:   systemctl enable igi
+# Start:    systemctl start igi
+# Logs:     journalctl -u igi -f
+
+[Unit]
+Description=IGI FastAPI Backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=notify
+
+User=igi
+Group=igi
+WorkingDirectory=/srv/igi
+
+EnvironmentFile=/srv/igi/.env
+
+ExecStart=/srv/igi/venv/bin/gunicorn -c gunicorn.conf.py main:app
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Resource limits (KVM1: 1 vCPU, 4 GB RAM)
+MemoryMax=3G
+MemorySwapMax=0        # no swap — swap on a VPS is deadly for latency
+OOMPolicy=kill         # kill only this service, not the whole system
+CPUQuota=95%           # leave 5% headroom for SSH, cron, Nginx
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/igi/output /srv/igi/uploads /srv/igi/mini-reports-output
+
+# Graceful shutdown — wait for in-flight requests
+# Must be > Gunicorn graceful_timeout (30 s) to avoid SIGKILL mid-request
+TimeoutStopSec=35
+KillSignal=SIGTERM
+SendSIGKILL=yes
+
+[Install]
+WantedBy=multi-user.target
