@@ -69,6 +69,9 @@ export default function ReportPDF({
     const qrToUse = incomingQr || localQr;  // <-- automatic priority
 
     const isECopy = Boolean(data.isecopy);
+    // The PDF renderer wraps by available width. These thresholds match the
+    // description column widths used by the single and grid report cards.
+    const descriptionIsThreeLines = data.description.length > (isSingleGridLayout ? 76 : 108);
 
     const FIXED_FONTS = {
         title: 6,
@@ -490,30 +493,34 @@ export default function ReportPDF({
                                 </Text>
                             </View>
 
-                            <View style={[styles.labelRow, styles.descriptionRow, { top: isSingleGridLayout ? isECopy ? 1.2 : 0.7 : 0.6 }]}>
-                                <Text style={styles.label}>Description</Text>
+                            {!descriptionIsThreeLines && (
+                                <View style={[styles.labelRow, styles.descriptionRow, { top: isSingleGridLayout ? isECopy ? 1.2 : 0.7 : 0.6 }]}>
+                                    <Text style={styles.label}>Description</Text>
+                                    <Text
+                                        style={[
+                                            styles.value,
+                                            { fontFamily: "ITCAvantGardeCondensed", width: '100%' },
+                                        ]}
+                                    >
+                                        {"\u00A0"}
+                                        <Text style={styles.colon}>: </Text>
+                                        <Text>{data.description}</Text>
+                                    </Text>
+                                </View>
+                            )}
+                            <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 1 : 5.5 : 3.5 }]}> 
+                                {!descriptionIsThreeLines && <Text style={styles.label}>Shape and Cut</Text>}
                                 <Text
                                     style={[
                                         styles.value,
-                                        { fontFamily: "ITCAvantGardeCondensed", width: '100%' },
+                                        {
+                                            fontFamily: "ITCAvantGardeCondensed",
+                                            ...(descriptionIsThreeLines ? { width: '100%', textAlign: 'center' as const } : {}),
+                                        },
                                     ]}
                                 >
-                                    {"\u00A0"}
-                                    <Text style={styles.colon}>: </Text>
-                                    <Text>{data.description}</Text>
-                                </Text>
-                            </View>
-
-                            <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 1 : 5.5 : 3.5 }]}>
-                                <Text style={styles.label}>Shape and Cut</Text>
-                                <Text
-                                    style={[
-                                        styles.value,
-                                        { fontFamily: "ITCAvantGardeCondensed" },
-                                    ]}
-                                >
-                                    {"\u00A0"}
-                                    <Text style={styles.colon}>: </Text>
+                                    {!descriptionIsThreeLines && "\u00A0"}
+                                    {!descriptionIsThreeLines && <Text style={styles.colon}>: </Text>}
                                     <Text>
                                         {data.shape_and_cut}
                                     </Text>
