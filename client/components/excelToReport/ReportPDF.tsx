@@ -188,6 +188,15 @@ export default function ReportPDF({
             alignItems: "flex-start",
             position: "relative",
         },
+        descriptionRow: {
+            // Always reserve room for three wrapped description lines. This keeps
+            // Shape and Cut and every row below it at the same PDF coordinates.
+            height: isSingleGridLayout
+                ? (isECopy ? FIXED_FONTS.value * 1.6 : FIXED_FONTS.value * 1.8) * 3
+                : FIXED_FONTS.value * 1.6 * 3,
+            flexShrink: 0,
+            overflow: "hidden",
+        },
         label: {
             width: isSingleGridLayout && isECopy ? 57 : LABEL_WIDTH,
             fontSize: FIXED_FONTS.label,
@@ -481,7 +490,7 @@ export default function ReportPDF({
                                 </Text>
                             </View>
 
-                            <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 1.2 : 0.7 : 0.6 }]}>
+                            <View style={[styles.labelRow, styles.descriptionRow, { top: isSingleGridLayout ? isECopy ? 1.2 : 0.7 : 0.6 }]}>
                                 <Text style={styles.label}>Description</Text>
                                 <Text
                                     style={[
