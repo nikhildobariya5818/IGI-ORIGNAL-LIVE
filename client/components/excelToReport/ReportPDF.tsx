@@ -3,10 +3,13 @@ import { View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer"
 import { BOTTOM_DATE, DEFAULT_COMMENT, DEFAULT_COMMENT_ELECTRONIC_COPY_ONE, DEFAULT_COMMENT_ELECTRONIC_COPY_TWO, IMPORTANT_NOTICE, IMPORTANT_NOTICE_BOLD } from "../../lib/env";
 import QRCode from "qrcode";
 
+// Description is a multi-line value. Keep its line spacing tighter than the
+// normal value rows so 3-line descriptions render as a compact 3-line block.
+const DESCRIPTION_LINE_HEIGHT = 1.18;
+
 // add near top of file / inside component before creating styles
 const LABEL_WIDTH = 53.4; // LABEL_WIDTH — the horizontal space (in PDF points) reserved for the label text (e.g. "Comments:"). Think of it as the left  column width.
 const LABEL_GAP = 0  // a little extra padding between the label and value of the start of the first line of the value.
-
 
 Font.registerHyphenationCallback(word => [word]);
 
@@ -59,12 +62,6 @@ export default function ReportPDF({
     // We prefer the QR already prepared outside
     const incomingQr = data.qrDataUrl ?? null;
 
-    // // Debug log
-    // useEffect(() => {
-    //     console.log("ReportPDF incoming QR:", incomingQr);
-    //     console.log("ReportPDF local QR:", localQr);
-    // }, [incomingQr, localQr]);
-
     // FINAL QR to use
     const qrToUse = incomingQr || localQr;  // <-- automatic priority
 
@@ -78,6 +75,14 @@ export default function ReportPDF({
         footer: 2.9,
         bottomDate: 3,
     };
+
+    // -----------------------------------------------------------------------
+    // NEW: figure out how many lines Description will take, and how much
+    // extra vertical space that adds compared to the 2-line baseline the
+    // layout below was tuned for. We then pull the block below Description
+    // back up by that amount so the fixed-position footer never gets crowded.
+    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
 
     useEffect(() => {
         let mounted = true;
@@ -99,8 +104,6 @@ export default function ReportPDF({
                     (typeof window !== "undefined" ? window.location.origin : "");
 
                 const verifyUrl = `${base}/?r=${encodeURIComponent(reportNo)}`;
-
-                console.log("Generating QR inside ReportPDF for:", reportNo);
 
                 const url = await QRCode.toDataURL(verifyUrl, {
                     margin: 3,
@@ -128,7 +131,6 @@ export default function ReportPDF({
         container: {
             fontFamily: "Helvetica",
             fontSize: 11,
-            // backgroundColor: "#FFFFFF",
             flexDirection: "column",
         },
         headerRow: {
@@ -138,31 +140,18 @@ export default function ReportPDF({
             top: isSingleGridLayout ? 0 : 7.5,
             left: isSingleGridLayout ? isECopy ? 44 : 38 : 40,
             right: isSingleGridLayout ? 11 : 19.3,
-            // zIndex: 9999,
         },
-        logoRow: {
-            // marginTop: 1.6,
-        },
-        // fonts
-        ITCFont: {
-            fontFamily: "ITCAvantGardeCondensed",
-        },
-        CanvaFont: {
-            fontFamily: "CanvaSans",
-        },
-        ArimoFont: {
-            fontFamily: "Arimo",
-        },
-        IBmFont: {
-            fontFamily: "IBMPlexSans",
-        },
+        logoRow: {},
+        ITCFont: { fontFamily: "ITCAvantGardeCondensed" },
+        CanvaFont: { fontFamily: "CanvaSans" },
+        ArimoFont: { fontFamily: "Arimo" },
+        IBmFont: { fontFamily: "IBMPlexSans" },
         title: {
             color: 'black',
             fontSize: FIXED_FONTS.title,
         },
         jewelryTitle: {
             marginTop: isSingleGridLayout ? isECopy ? 2.7 : 0 : 0,
-            // fontWeight: "normal",
             marginRight: isSingleGridLayout ? isECopy ? 2 : 0 : 3.4,
             letterSpacing: 0.1,
             fontSize: FIXED_FONTS.jewelryTitle,
@@ -194,30 +183,33 @@ export default function ReportPDF({
             position: "absolute",
             left: 0,
             top: 0,
-            // fontWeight: 400,
             paddingRight: 4,
             ...(isSingleGridLayout && isECopy && {
                 position: 'static',
                 textTransform: 'uppercase',
             }),
-            // letterSpacing: 0.4,
             fontFamily: "ITCAvantGardeCondensed",
         },
-        // value should take full width and use a textIndent so the first line starts after the label
         value: {
             fontSize: FIXED_FONTS.value,
             width: isSingleGridLayout && isECopy ? valueWidth - 50 : valueWidth,
-            // backgroundColor: 'pink',
-            // first line is indented to sit after the label; wrapped lines start at left margin (same as label)
             textIndent: LABEL_WIDTH + LABEL_GAP,
-            // ensure there's no left margin that would push wrapped lines further
             paddingLeft: 0,
             marginTop: isSingleGridLayout ? isECopy ? -2 : -1.5 : -1.3,
-            // letterSpacing: 0.3,
-            // vertical spacing between lines: increase to add more space between the 1st and 2nd line
-            // lineHeight: 1.4,
             lineHeight: isSingleGridLayout ? isECopy ? 1.6 : 1.8 : 1.6,
             fontFamily: "IBMPlexSans",
+            ...(isSingleGridLayout && isECopy && {
+                textIndent: -5
+            }),
+        },
+        descriptionValue: {
+            fontSize: FIXED_FONTS.value,
+            width: isSingleGridLayout && isECopy ? valueWidth - 50 : valueWidth,
+            textIndent: LABEL_WIDTH + LABEL_GAP,
+            paddingLeft: 0,
+            marginTop: isSingleGridLayout ? isECopy ? -2 : -1.5 : -1.3,
+            lineHeight: DESCRIPTION_LINE_HEIGHT,
+            fontFamily: "ITCAvantGardeCondensed",
             ...(isSingleGridLayout && isECopy && {
                 textIndent: -5
             }),
@@ -255,14 +247,6 @@ export default function ReportPDF({
             right: isSingleGridLayout ? '5%' : "11.60%",
             fontSize: FIXED_FONTS.bottomDate,
         },
-        // qrWatermark: {
-        //     backgroundColor:'red',
-        //     position: "absolute",
-        //     top: "15%",
-        //     left: "41%",
-        //     width: 26.3,
-        //     height: 27,
-        // },
         qrWatermark: {
             position: "absolute",
             top: "13%",
@@ -270,17 +254,13 @@ export default function ReportPDF({
             width: 33,
             height: 34,
         },
-
         rightImageAbsolute: {
             position: "absolute",
             top: isSingleGridLayout ? isECopy ? "45%" : "41%" : "46%",
             right: isSingleGridLayout ? isECopy ? 6 : 8.5 : 24,
-            // width: 47, // orignal img size
-            // height: 44.5, // orignal img size
             width: isSingleGridLayout ? isECopy ? 43 : 43 : 46,
             height: isSingleGridLayout ? isECopy ? 43 : 43 : 45,
             overflow: "hidden",
-            // border: "0.3pt solid red", // optional
         },
         IgiImageAbsolute: {
             position: "absolute",
@@ -289,7 +269,6 @@ export default function ReportPDF({
             width: isSingleGridLayout && isECopy ? 50 : 52,
             height: isSingleGridLayout && isECopy ? 50 : 52,
             overflow: "hidden",
-            // border: "0.3pt solid red", // optional
         },
         noticeBgImageAbsolute: {
             position: "absolute",
@@ -308,7 +287,6 @@ export default function ReportPDF({
             overflow: "hidden",
             opacity: 0.7
         },
-
         electronicCopyImageAbsolute: {
             position: "absolute",
             top: isSingleGridLayout && isECopy ? '3%' : "8%",
@@ -316,7 +294,6 @@ export default function ReportPDF({
             width: isSingleGridLayout && isECopy ? 29 : 31,
             height: isSingleGridLayout && isECopy ? 29 : 31,
             overflow: "hidden",
-            // border: "0.3pt solid red", // optional
         },
         eCopyAbsolute: {
             position: "absolute",
@@ -325,11 +302,8 @@ export default function ReportPDF({
             marginTop: -1,
             overflow: "hidden",
         },
-
     })
 
-    // Apply width/height/padding only to this inner container.
-    // const containerStyle: any = [styles.container, { width: contentWidth ?? "100%", height: contentHeight ?? undefined, padding }, style]
     const containerStyle: any = [
         styles.container,
         {
@@ -338,7 +312,6 @@ export default function ReportPDF({
         },
     ];
 
-    // wrapper that rotates the entire page/content 180° clockwise 
     const rotatedWrapperStyle: any = {
         width: contentWidth ?? "100%",
         height: contentHeight ?? undefined,
@@ -360,7 +333,6 @@ export default function ReportPDF({
                                     letterSpacing: 1,
                                 }),
                                 fontSize: isSingleGridLayout && isECopy ? 5.2 : 6, fontFamily: isSingleGridLayout && isECopy ? "IBMPlexSans" : "CanvaSans",
-                                // fontWeight: 100
                             }}>{isSingleGridLayout && isECopy ? 'ELECTRONIC COPY' : 'E-COPY'}</Text>
                         </View>}
 
@@ -376,7 +348,6 @@ export default function ReportPDF({
                                 src="/img/logo.jpg"
                                 style={{ width: "100%", height: "100%", objectFit: "contain", }}
                             />
-
                         </View>}
                         {data.igi_logo && <View style={styles.igiBgImageAbsolute}>
                             <Image
@@ -389,7 +360,6 @@ export default function ReportPDF({
                                 src="/img/notice_bg.png"
                                 style={{ width: "100%", height: "100%", objectFit: "fill" }}
                             />
-
                         </View>}
                         <View style={styles.rightImageAbsolute}>
                             <Image
@@ -403,7 +373,6 @@ export default function ReportPDF({
                                     src={qrToUse}
                                     style={{ width: "100%", height: "100%", objectFit: "contain" }}
                                 />
-
                             </View>
                         )}
                     </>
@@ -413,24 +382,13 @@ export default function ReportPDF({
                     <View style={styles.headerRow} wrap={false}>
                         <View style={styles.logoRow}>
                             <View style={{ flexDirection: "column", marginTop: isSingleGridLayout ? 5 : 0 }}>
-                                <Text style={[styles.title, styles.ArimoFont, {
-                                    // fontFamily: "ITCAvantGardeCondensed",
-                                    // fontWeight: "bold",
-                                    letterSpacing: -0.3
-                                }]}>
+                                <Text style={[styles.title, styles.ArimoFont, { letterSpacing: -0.3 }]}>
                                     INTERNATIONAL
                                 </Text>
-
                                 <Text
                                     style={[
                                         styles.ArimoFont,
-                                        {
-                                            // fontFamily: "ITCAvantGardeCondensed",
-                                            // fontWeight: "bold",
-                                            fontSize: FIXED_FONTS.title,
-                                            marginTop: 1,
-                                            color: 'black',
-                                        },
+                                        { fontSize: FIXED_FONTS.title, marginTop: 1, color: 'black' },
                                     ]}
                                 >
                                     GEMOLOGICAL
@@ -438,23 +396,14 @@ export default function ReportPDF({
                                 <Text
                                     style={[
                                         styles.ArimoFont,
-                                        {
-                                            // fontFamily: "ITCAvantGardeCondensed",
-                                            // fontWeight: "bold",
-                                            fontSize: FIXED_FONTS.title, color: 'black', marginTop: 1.2, letterSpacing: -0.1
-                                        },
+                                        { fontSize: FIXED_FONTS.title, color: 'black', marginTop: 1.2, letterSpacing: -0.1 },
                                     ]}
                                 >
                                     INSTITUTE{"\u00A0"}
                                     <Text
                                         style={[
                                             styles.ITCFont,
-                                            {
-                                                // fontFamily: "ITCAvantGardeCondensed",
-                                                // fontWeight: "bold",
-                                                fontWeight: "normal",
-                                                fontSize: 6.5, marginLeft: 6, letterSpacing: 0.3
-                                            },
+                                            { fontWeight: "normal", fontSize: 6.5, marginLeft: 6, letterSpacing: 0.3 },
                                         ]}
                                     >
                                         INDIA
@@ -464,7 +413,7 @@ export default function ReportPDF({
                         </View>
 
                         <View >
-                            <Text style={[styles.CanvaFont, styles.jewelryTitle,{marginRight:-10}]}>
+                            <Text style={[styles.CanvaFont, styles.jewelryTitle, { marginRight: -10 }]}>
                                 JEWELRY REPORT
                             </Text>
                         </View>
@@ -485,8 +434,8 @@ export default function ReportPDF({
                                 <Text style={styles.label}>Description</Text>
                                 <Text
                                     style={[
-                                        styles.value,
-                                        { fontFamily: "ITCAvantGardeCondensed", width: '100%' },
+                                        styles.descriptionValue,
+                                        { width: '100%' },
                                     ]}
                                 >
                                     {"\u00A0"}
@@ -495,7 +444,16 @@ export default function ReportPDF({
                                 </Text>
                             </View>
 
-                            <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 1 : 5.5 : 3.5 }]}>
+                            <View style={[
+                                styles.labelRow,
+                                {
+                                    top: isSingleGridLayout ? isECopy ? 1 : 5.5 : 3.5,
+                                    // Description has its own compact line-height, so do not
+                                    // pull Shape and Cut upward. This avoids the visual gap/overlap
+                                    // that appeared when a description wrapped to 3 lines.
+                                    marginTop: 0,
+                                },
+                            ]}>
                                 <Text style={styles.label}>Shape and Cut</Text>
                                 <Text
                                     style={[
@@ -513,9 +471,7 @@ export default function ReportPDF({
 
                             <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 2.4 : 7 : 4.5 }]}>
                                 <Text style={styles.label}>Tot. Est.Weight</Text>
-                                <Text style={[styles.value,
-                                    // { fontWeight: "bold" }
-                                ]}>
+                                <Text style={[styles.value]}>
                                     {"\u00A0"}
                                     <Text style={[styles.colon]}>: </Text>
                                     <Text style={[styles.carat]}>{data.tot_est_weight} Carat</Text>
@@ -524,8 +480,7 @@ export default function ReportPDF({
 
                             <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 4 : 7 : 3.8 }]}>
                                 <Text style={styles.label}>Color</Text>
-                                <Text style={[styles.value,
-                                { fontFamily: "Arimo" }]}>
+                                <Text style={[styles.value, { fontFamily: "Arimo" }]}>
                                     {"\u00A0"}
                                     <Text style={styles.colon}>: </Text>
                                     <Text>{data.color}</Text>
@@ -534,10 +489,7 @@ export default function ReportPDF({
 
                             <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 5.3 : 7.5 : 3.4 }]}>
                                 <Text style={styles.label}>Clarity</Text>
-                                <Text style={[styles.value,
-                                { fontFamily: "Arimo" }
-                                    //  { fontWeight: "bold" }
-                                ]}>
+                                <Text style={[styles.value, { fontFamily: "Arimo" }]}>
                                     {"\u00A0"}
                                     <Text style={styles.colon}>: </Text>
                                     <Text>{data.clarity}</Text>
@@ -547,10 +499,7 @@ export default function ReportPDF({
                             {/* Comments row */}
                             <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 6.4 : 8.5 : 12.5 }]}>
                                 <Text style={styles.label}>Comments</Text>
-                                {/* keep a container the same width as your value column */}
                                 {isSingleGridLayout && isECopy ? <View style={{ width: isECopy ? valueWidth - 50 : valueWidth }}>
-
-                                    {/* first line: uses the existing styles.value so textIndent (first-line indent) + colon work */}
                                     <Text style={[styles.value, { fontFamily: "ITCAvantGardeCondensed" }]}>
                                         {"\u00A0"}
                                         <Text style={styles.colon}>: </Text>
@@ -559,13 +508,12 @@ export default function ReportPDF({
                                         </Text>
                                     </Text>
 
-                                    {/* second line: only render when ; textIndent and shift it right so it starts where the value does */}
                                     {(
                                         <Text
                                             style={[
                                                 styles.value,
                                                 {
-                                                    textIndent: 0, // no first-line indent for these explicit lines
+                                                    textIndent: 0,
                                                     fontFamily: "ITCAvantGardeCondensed",
                                                     marginTop: 0.1
                                                 },
@@ -575,7 +523,6 @@ export default function ReportPDF({
                                         </Text>
                                     )}
 
-                                    {/* third line: data.style, also aligned under value */}
                                     {<Text
                                         style={[
                                             styles.value,
@@ -583,7 +530,6 @@ export default function ReportPDF({
                                                 textIndent: 0,
                                                 fontFamily: "ITCAvantGardeCondensed",
                                                 marginTop: -2
-
                                             },
                                         ]}
                                     >
@@ -593,9 +539,7 @@ export default function ReportPDF({
                                     {"\u00A0"}
                                     <Text style={styles.colon}>: </Text>
                                     <Text>
-                                        {/* {`${data.comment}${data.style}`} */}
                                         {data.comment ?? DEFAULT_COMMENT}
-                                        {/* {DEFAULT_COMMENT_ELECTRONIC_COPY} */}
                                         <Text style={styles.mainComment}>Style #{data.style_number ?? ""}</Text>
                                     </Text>
                                 </Text>}
