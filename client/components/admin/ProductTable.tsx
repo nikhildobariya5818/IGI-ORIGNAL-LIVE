@@ -19,9 +19,35 @@ import { Button } from "../ui/button";
 import { DEFAULT_PAGE_SIZE, MAX_SEARCH_WORDS } from "../../lib/env";
 import { toast } from "sonner";
 import { apiClient } from "../../lib/apiClient";
-import JSZip from "jszip";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+const mapReportData = (report: any) => ({
+    report_no: report.report_no,
+    description: report.description,
+    shape_and_cut: report.shape_and_cut,
+    tot_est_weight: report.tot_est_weight,
+    color: report.color,
+    clarity: report.clarity,
+    style_number: report.style_number,
+    comment: report.comment,
+    image_filename: report.image_filename,
+    company_logo: report.company_logo,
+    isecopy: report.isecopy,
+    notice_image: report.notice_image,
+    igi_logo: report.igi_logo,
+});
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+};
 
 export type Product = {
     report_no: string;
@@ -40,10 +66,11 @@ const ActionCell: React.FC<
     ICellRendererParams<Product, any> & {
         onEdit?: (report_no: string) => void;
         onDeleted?: (report_no: string) => void;
+        onPrint?: (report_no: string) => void;
         buttonClassName?: string;
     }
 > = (props) => {
-    const { data, onEdit, onDeleted, buttonClassName } = props;
+    const { data, onEdit, onDeleted, onPrint, buttonClassName } = props;
     if (!data) return <div />;
 
     const handleEdit = (e?: React.MouseEvent) => {
@@ -57,12 +84,7 @@ const ActionCell: React.FC<
         e?.preventDefault();
         const reportNo = data.report_no ?? "";
         if (!reportNo) return;
-        const url = `/admin/report-viewer-grid?r=${encodeURIComponent(reportNo)}`;
-        try {
-            window.open(url, "_blank", "noopener,noreferrer");
-        } catch {
-            // silent
-        }
+        onPrint?.(reportNo);
     };
 
     return (
@@ -192,6 +214,20 @@ export default function ProductTable() {
     }, []);
 
 
+    async function handleDirectDownload(reportNo: string) {
+        setIsExporting(true);
+        try {
+            const report = await apiClient.getReportById(reportNo);
+            const pdfBlob = await generatePDFForReports([mapReportData(report)]);
+            downloadBlob(pdfBlob, `Jewelry-Report-${reportNo}.pdf`);
+            toast.success(`PDF downloaded successfully`);
+        } catch (err: any) {
+            toast.error(err?.message ?? "Failed to export PDF");
+        } finally {
+            setIsExporting(false);
+        }
+    }
+
     // Column definitions — with checkbox selection
     const columnDefs = useMemo<ColDef<Product, any>[]>(
         () => [
@@ -223,11 +259,12 @@ export default function ProductTable() {
                         {...params}
                         onEdit={(reportNo) => openEditForReport(reportNo)}
                         onDeleted={() => afterSaveOrDelete()}
+                        onPrint={handleDirectDownload}
                     />
                 ),
             },
         ],
-        [openEditForReport, afterSaveOrDelete]
+        [openEditForReport, afterSaveOrDelete, handleDirectDownload]
     );
 
     const defaultColDef = useMemo(
@@ -309,33 +346,9 @@ export default function ProductTable() {
             const reportDataArray = await Promise.all(reportDataPromises);
 
             // Map to ReportData format expected by JewelryReportGrid
-            const reportData = reportDataArray.map((report: any) => ({
-                report_no: report.report_no,
-                description: report.description,
-                shape_and_cut: report.shape_and_cut,
-                tot_est_weight: report.tot_est_weight,
-                color: report.color,
-                clarity: report.clarity,
-                style_number: report.style_number,
-                comment: report.comment,
-                image_filename: report.image_filename,
-                company_logo: report.company_logo,
-                isecopy: report.isecopy,
-                notice_image: report.notice_image,
-                igi_logo: report.igi_logo,
-            }));
-
-            // Generate PDFs with 9-item grid (3x3)
-            const itemsPerPage = 9; // 3x3 grid
-            const pages = chunk(reportData, itemsPerPage);
-
-            if (pages.length === 1) {
-                // Single PDF - download directly
-                await downloadSinglePDF(pages[0], selectedRows);
-            } else {
-                // Multiple PDFs - create zip
-                await downloadMultiplePDFsAsZip(pages, selectedRows);
-            }
+            const reportData = reportDataArray.map(mapReportData);
+            const pdfBlob = await generatePDFForReports(reportData);
+            downloadBlob(pdfBlob, `Jewelry-Reports-${selectedRows.slice(0, 3).join("-")}.pdf`);
 
             toast.success(`PDF(s) downloaded successfully`);
         } catch (err: any) {
@@ -345,63 +358,6 @@ export default function ProductTable() {
             setIsExporting(false);
         }
     }, [selectedRows]);
-
-    // Helper function to chunk array
-    const chunk = <T,>(arr: T[], size: number): T[][] => {
-        const out: T[][] = [];
-        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-        return out;
-    };
-
-    // Download single PDF
-    const downloadSinglePDF = async (pageData: any[], reportNos: string[]) => {
-        const fileName = `Jewelry-Reports-${reportNos.slice(0, 3).join("-")}-${reportNos.length > 3 ? "and-more" : ""}`;
-
-        try {
-            // Use the JewelryReportGrid's handleDownloadAll logic adapted for single export
-            const pdfBlob = await generatePDFForReports(pageData);
-
-            const url = URL.createObjectURL(pdfBlob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${fileName}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error("Error downloading single PDF:", err);
-            throw err;
-        }
-    };
-
-    // Download multiple PDFs as ZIP
-    const downloadMultiplePDFsAsZip = async (pages: any[][], reportNos: string[]) => {
-        const baseFileName = `Jewelry-Reports-${reportNos[0]}-multiple`;
-        const zip = new JSZip();
-
-        try {
-            for (let idx = 0; idx < pages.length; idx++) {
-                const pageData = pages[idx];
-                const pdfBlob = await generatePDFForReports(pageData);
-                const partName = `${baseFileName}-part-${idx + 1}.pdf`;
-                zip.file(partName, pdfBlob);
-            }
-
-            const zipBlob = await zip.generateAsync({ type: "blob" });
-            const zipUrl = URL.createObjectURL(zipBlob);
-            const a = document.createElement("a");
-            a.href = zipUrl;
-            a.download = `${baseFileName}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(zipUrl);
-        } catch (err) {
-            console.error("Error generating ZIP:", err);
-            throw err;
-        }
-    };
 
     // Helper to generate PDF blob from report data (mimics JewelryReportGrid PDF generation)
     const generatePDFForReports = useCallback(async (reportData: any[]): Promise<Blob> => {
@@ -499,9 +455,12 @@ export default function ProductTable() {
         // Create PDF document
         const docEl = (
             <Document title={`Jewelry Report — ${reportData?.[0]?.report_no ?? "batch"}`}>
+                {Array.from({ length: Math.max(1, Math.ceil(reportData.length / itemsPerPage)) }).map((_, pageIndex) => {
+                    const pageData = reportData.slice(pageIndex * itemsPerPage, (pageIndex + 1) * itemsPerPage);
+                    return (
                 <Page size={[pageDims.width, pageDims.height]} style={styles.page}>
                     <View style={styles.grid}>
-                        {reportData.map((item: any, idx: number) => (
+                        {pageData.map((item: any, idx: number) => (
                             <View key={idx} style={styles.cell}>
                                 <View style={styles.rotateWrapper}>
                                     <View style={[styles.rotatedContent, { position: "relative" }]}>
@@ -529,8 +488,8 @@ export default function ProductTable() {
                                 </View>
                             </View>
                         ))}
-                        {reportData.length < itemsPerPage &&
-                            Array.from({ length: itemsPerPage - reportData.length }).map((_, i) => (
+                        {pageData.length < itemsPerPage &&
+                            Array.from({ length: itemsPerPage - pageData.length }).map((_, i) => (
                                 <View key={`empty-${i}`} style={styles.cell} />
                             ))}
                         {verticalXs.map((x, i) => (
@@ -563,6 +522,8 @@ export default function ProductTable() {
                         ))}
                     </View>
                 </Page>
+                    );
+                })}
             </Document>
         );
 
