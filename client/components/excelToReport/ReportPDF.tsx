@@ -4,8 +4,11 @@ import { BOTTOM_DATE, DEFAULT_COMMENT, DEFAULT_COMMENT_ELECTRONIC_COPY_ONE, DEFA
 import QRCode from "qrcode";
 
 // Description is a multi-line value. Keep its line spacing tighter than the
-// normal value rows so 3-line descriptions render as a compact 3-line block.
-const DESCRIPTION_LINE_HEIGHT = 1.18;
+// normal value rows so 3-line descriptions render as a compact, EVENLY
+// spaced block. NOTE: raising this from 1.18 -> 1.3 because once the
+// line-height is applied uniformly (see fix below) the extra room makes a
+// 3-line description more readable without breaking the 2-line layout.
+const DESCRIPTION_LINE_HEIGHT = 1.3;
 
 // add near top of file / inside component before creating styles
 const LABEL_WIDTH = 53.4; // LABEL_WIDTH — the horizontal space (in PDF points) reserved for the label text (e.g. "Comments:"). Think of it as the left  column width.
@@ -213,6 +216,19 @@ export default function ReportPDF({
             ...(isSingleGridLayout && isECopy && {
                 textIndent: -5
             }),
+        },
+        // NEW: dedicated colon style for the Description row only. It MUST
+        // match the fontFamily/fontSize of the description text itself.
+        // Previously the shared `colon` style below used IBMPlexSans at a
+        // different size than the description's ITCAvantGardeCondensed run,
+        // which made react-pdf compute inconsistent per-line heights when
+        // the description wrapped to 3 lines (tight gap after line 1, loose
+        // gap after line 2). Using one uniform font run for the whole block
+        // makes every wrapped line share the same line height.
+        descriptionColon: {
+            marginLeft: -10,
+            fontSize: FIXED_FONTS.value,
+            fontFamily: "ITCAvantGardeCondensed",
         },
         colon: {
             marginLeft: -10,
@@ -430,6 +446,18 @@ export default function ReportPDF({
                                 </Text>
                             </View>
 
+                            {/*
+                                FIX: Description block.
+                                Both the colon run and the description text run now share
+                                the exact same fontFamily ("ITCAvantGardeCondensed") and
+                                fontSize (FIXED_FONTS.value). Before this change, the colon
+                                used the shared `colon` style (IBMPlexSans, a different size),
+                                which made react-pdf compute per-line heights inconsistently
+                                once the description wrapped to 3 lines (line1->line2 gap
+                                looked tight, line2->line3 gap looked loose). With a single
+                                uniform font run, DESCRIPTION_LINE_HEIGHT now applies evenly
+                                to every wrapped line.
+                            */}
                             <View style={[styles.labelRow, { top: isSingleGridLayout ? isECopy ? 1.2 : 0.7 : 0.6 }]}>
                                 <Text style={styles.label}>Description</Text>
                                 <Text
@@ -439,8 +467,10 @@ export default function ReportPDF({
                                     ]}
                                 >
                                     {"\u00A0"}
-                                    <Text style={styles.colon}>: </Text>
-                                    <Text>{data.description}</Text>
+                                    <Text style={styles.descriptionColon}>: </Text>
+                                    <Text style={{ fontFamily: "ITCAvantGardeCondensed", fontSize: FIXED_FONTS.value }}>
+                                        {data.description}
+                                    </Text>
                                 </Text>
                             </View>
 
