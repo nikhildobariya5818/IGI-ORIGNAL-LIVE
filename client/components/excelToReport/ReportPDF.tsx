@@ -272,7 +272,7 @@ export default function ReportPDF({
         },
         rightImageAbsolute: {
             position: "absolute",
-            top: isSingleGridLayout ? isECopy ? "45%" : "41%" : "46%",
+            top: isSingleGridLayout ? isECopy ? "43%" : "39%" : "44%", //top: isSingleGridLayout ? isECopy ? "45%" : "41%" : "46%",
             right: isSingleGridLayout ? isECopy ? 6 : 8.5 : 24,
             width: isSingleGridLayout ? isECopy ? 43 : 43 : 46,
             height: isSingleGridLayout ? isECopy ? 43 : 43 : 45,
