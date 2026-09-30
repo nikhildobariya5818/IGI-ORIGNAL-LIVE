@@ -69,10 +69,12 @@ export default function ReportPDF({
     const qrToUse = incomingQr || localQr;  // <-- automatic priority
 
     const isECopy = Boolean(data.isecopy);
-    // Server report numbers are 13 digits; PDFs intentionally show only the first 12.
+    // Server report numbers are 13 characters; PDFs hide the character immediately after J.
+    // Example: 32J8072412609 becomes 32J072412609.
     const reportNumber = String(data.report_no ?? "").trim();
-    const displayedReportNumber = reportNumber.length === 13
-        ? reportNumber.slice(0, 12)
+    const jIndex = reportNumber.indexOf("J");
+    const displayedReportNumber = reportNumber.length === 13 && jIndex >= 0 && jIndex < reportNumber.length - 1
+        ? `${reportNumber.slice(0, jIndex + 1)}${reportNumber.slice(jIndex + 2)}`
         : reportNumber;
 
     const FIXED_FONTS = {
