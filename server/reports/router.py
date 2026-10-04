@@ -444,11 +444,148 @@ def upload_xlsx(
     wb = load_workbook(file_bytes, data_only=True)
     sheet = wb["sheet1"] if "sheet1" in wb.sheetnames else wb[wb.sheetnames[0]]
 
-    df = pd.DataFrame(sheet.values)
-    df.columns = [str(c).strip() for c in df.iloc[0]]
-    df = df[1:]
-    df = df.dropna(subset=["Jewelry Description", "Style Number"], how="all")
-    df = df[df["Jewelry Description"].astype(str).str.strip() != ""]
+    # ==========================================================
+    # Read Excel data and normalize column names
+    # ==========================================================
+    raw_data = list(sheet.values)
+
+    if not raw_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Excel sheet is empty."
+        )
+
+    # First row is expected to contain column headers
+    headers = raw_data[0]
+
+    # Normalize headers:
+    # - convert None to empty string
+    # - strip leading/trailing spaces
+    # - collapse multiple spaces
+    normalized_headers = []
+
+    for col in headers:
+        if col is None:
+            normalized_headers.append("")
+        else:
+            normalized_headers.append(
+                re.sub(r"\s+", " ", str(col).strip())
+            )
+
+    df = pd.DataFrame(raw_data[1:], columns=normalized_headers)
+
+    # Remove completely unnamed / empty columns
+    df = df.loc[
+        :,
+        [
+            col for col in df.columns
+            if col and not str(col).lower().startswith("unnamed")
+        ]
+    ]
+
+    # ==========================================================
+    # Normalize known Excel column variations
+    # ==========================================================
+    column_aliases = {
+        # Jewelry Description
+        "Jewellery Description": "Jewelry Description",
+        "Jewellery description": "Jewelry Description",
+        "Jewelry description": "Jewelry Description",
+        "JEWELRY DESCRIPTION": "Jewelry Description",
+        "JEWELLERY DESCRIPTION": "Jewelry Description",
+        "Description": "Jewelry Description",
+        "Jewelry": "Jewelry Description",
+
+        # Style Number
+        "Style number": "Style Number",
+        "STYLE NUMBER": "Style Number",
+        "Style No": "Style Number",
+        "Style No.": "Style Number",
+        "Style #": "Style Number",
+        "Style": "Style Number",
+
+        # Other common variations
+        "No. Of Diamonds": "No Of Diamonds",
+        "No Of Diamond": "No Of Diamonds",
+        "Number Of Diamonds": "No Of Diamonds",
+
+        "Gross Weight": "Gross Weight",
+        "Gross wt": "Gross Weight",
+        "Gross Wt": "Gross Weight",
+
+        "Diamond Weight": "Diamond Weight",
+        "Diamond Wt": "Diamond Weight",
+
+        "Metal Colour": "Metal Color",
+        "Metal colour": "Metal Color",
+
+        "Color Criteria": "Color Criteria",
+        "Colour Criteria": "Color Criteria",
+
+        "Clarity Criteria": "Clarity Criteria",
+    }
+
+    # Case-insensitive alias matching
+    rename_map = {}
+
+    for existing_col in df.columns:
+        clean_col = str(existing_col).strip()
+
+        # Exact alias
+        if clean_col in column_aliases:
+            rename_map[existing_col] = column_aliases[clean_col]
+            continue
+
+        # Case-insensitive alias
+        for alias, standard_name in column_aliases.items():
+            if clean_col.lower() == alias.lower():
+                rename_map[existing_col] = standard_name
+                break
+
+    df = df.rename(columns=rename_map)
+
+    # ==========================================================
+    # Validate required columns
+    # ==========================================================
+    required_columns = [
+        "Jewelry Description",
+        "Style Number",
+    ]
+
+    missing_columns = [
+        col for col in required_columns
+        if col not in df.columns
+    ]
+
+    if missing_columns:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Invalid Excel format.",
+                "missing_columns": missing_columns,
+                "available_columns": [
+                    str(col) for col in df.columns
+                ],
+            },
+        )
+
+    # ==========================================================
+    # Remove empty rows
+    # ==========================================================
+    df = df.dropna(
+        subset=["Jewelry Description", "Style Number"],
+        how="all"
+    )
+
+    # Remove rows where Jewelry Description is empty
+    df = df[
+        df["Jewelry Description"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        != ""
+    ]
+
     df = df.reset_index(drop=True)
 
     mandatory_pattern = r"\(mandatory\)"
