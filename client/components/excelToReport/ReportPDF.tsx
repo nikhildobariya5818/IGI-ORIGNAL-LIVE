@@ -449,7 +449,8 @@ export default function ReportPDF({
                                 <Text style={styles.value}>
                                     {"\u00A0"}
                                     <Text style={styles.colon}>: </Text>
-                                    <Text>{displayedReportNumber}</Text>
+                                    {/* <Text>{displayedReportNumber}</Text> */}
+                                    <Text>{reportNumber}</Text>
                                 </Text>
                             </View>
 

@@ -62,28 +62,28 @@ def verify_token(token: str):
         return None
 
 
+import random
+from datetime import datetime
+
 def gen_report_no() -> str:
-    # 2 digit prefix
+    # 2-digit prefix
     prefix = str(random.randint(10, 99))
 
+    # Fixed middle letter
     middle = "J"
 
-    # random position for '1' in 6 digits
-    pos = random.randint(0, 5)
+    # Generate 5 digits containing exactly one '1'
+    pos = random.randint(0, 4)
+    digits = [random.choice("023456789") for _ in range(5)]
+    digits[pos] = "1"
+    random_part = "".join(digits)
 
-    # generate digits excluding '1'
-    digits = [str(random.choice("023456789")) for _ in range(6)]
-
-    # place '1' at random position
-    digits[pos] = '1'
-
-    random_part = ''.join(digits)
-
+    # Current year and month
     now = datetime.now()
     yy = now.strftime("%y")
     mm = now.strftime("%m")
 
-    return f"{prefix}{middle}{random_part}{yy}{mm}"
+    return f"{prefix}{middle}{random_part}{mm}{yy}"
 
 
 
